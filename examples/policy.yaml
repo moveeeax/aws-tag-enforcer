@@ -1,0 +1,29 @@
+# Required-tag policy for aws-tag-enforcer.
+#
+# Every resource created in a scoped service must carry these tags. When a tag
+# is missing but listed under `defaults`, enforce mode applies the default;
+# anything with no default is flagged to the notification channels.
+
+required_tags:
+  - Owner
+  - Environment
+  - CostCenter
+
+# Values used to auto-fill a missing required tag (enforce mode only).
+defaults:
+  Environment: dev
+
+# "report" flags non-compliant resources without changing them.
+# "enforce" applies the defaults above, then flags whatever is still missing.
+mode: enforce
+
+# Only react to these services (empty = all supported services).
+services:
+  - ec2
+  - s3
+  - rds
+
+notify:
+  # Leave null to disable a channel.
+  sns_topic_arn: null
+  slack_webhook_url: null

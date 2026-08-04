@@ -1,0 +1,32 @@
+{
+  "version": "0",
+  "id": "8b0f7f3e-1c2a-4d5e-9a1b-2c3d4e5f6a7b",
+  "detail-type": "AWS API Call via CloudTrail",
+  "source": "aws.ec2",
+  "account": "111122223333",
+  "region": "eu-central-1",
+  "detail": {
+    "eventSource": "ec2.amazonaws.com",
+    "eventName": "RunInstances",
+    "awsRegion": "eu-central-1",
+    "requestParameters": {
+      "tagSpecificationSet": {
+        "items": [
+          {
+            "resourceType": "instance",
+            "tags": [
+              { "key": "Owner", "value": "mtarassov" }
+            ]
+          }
+        ]
+      }
+    },
+    "responseElements": {
+      "instancesSet": {
+        "items": [
+          { "instanceId": "i-0123456789abcdef0" }
+        ]
+      }
+    }
+  }
+}

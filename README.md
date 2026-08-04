@@ -1,32 +1,94 @@
 # aws-tag-enforcer
 
-> Keep your tagging policy honest, automatically.
+[![ci](https://github.com/moveeeax/aws-tag-enforcer/actions/workflows/ci.yml/badge.svg)](https://github.com/moveeeax/aws-tag-enforcer/actions/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**Status:** 🚧 In development
+Keep your AWS tagging policy honest, automatically. `aws-tag-enforcer` reacts to
+resource-creation events on EventBridge, checks the new resource against a
+config-driven required-tag policy, **applies** the defaults it can, and
+**flags** whatever it cannot fix to SNS or Slack.
 
-## Overview
+## What it does
 
-Auto-tag or flag AWS resources missing mandatory tags, driven by EventBridge.
+- Watches CloudTrail resource-creation events (EC2 `RunInstances`, S3
+  `CreateBucket`, RDS `CreateDBInstance`) via an EventBridge rule.
+- Evaluates the resource's tags against a YAML/JSON policy of required tags.
+- **enforce mode:** auto-applies default values for missing required tags, then
+  flags anything with no default.
+- **report mode:** changes nothing, just flags non-compliant resources.
+- Ships as a Lambda with a Terraform module, an SNS alert topic, and an SQS
+  dead-letter queue for failed invocations.
 
-## Features
+## How it works
 
-- EventBridge rule on resource-creation events
-- Applies default tags (owner, env, cost-center) when derivable
-- Flags non-compliant resources to SNS/Slack
-- Config-driven required-tag policy
-- Report mode + enforce mode
+The policy engine (`tag_enforcer/policy.py`) is a pure function: given a tag
+map it returns which required tags are missing, which can be satisfied from
+`defaults`, and which are unresolved. No AWS calls, so it is trivially testable.
 
-## Stack
+The event layer (`tag_enforcer/events.py`) normalizes each CloudTrail event
+shape into a single `ResourceRef`. Unsupported events return `None` and are
+skipped — better to ignore an event than to guess a resource wrong.
 
-Python + boto3, packaged as Lambda; Terraform to deploy.
+`boto3` is imported lazily inside the tagging and notification calls, so the
+engine, the CLI, and the whole test suite run without `boto3` installed.
+
+```
+EventBridge -> Lambda(handler) -> policy.evaluate() -> tagger.apply_tags()  (enforce)
+                                                    \-> notify() -> SNS / Slack
+```
 
 ## Usage
 
-```bash
-# deploy via terraform/
-terraform apply
+Check a tag set offline:
+
+```console
+$ tag-enforcer check --policy examples/policy.yaml --tags Owner=mt
+{
+  "compliant": false,
+  "to_apply": {
+    "Environment": "dev"
+  },
+  "unresolved": [
+    "CostCenter"
+  ]
+}
+$ echo $?
+1
 ```
+
+Replay a captured EventBridge event:
+
+```console
+$ tag-enforcer eval-event --policy examples/policy.yaml \
+    --event examples/event-run-instances.json
+{
+  "compliant": false,
+  "resource": "i-0123456789abcdef0",
+  "service": "ec2",
+  "to_apply": { "Environment": "dev" },
+  "unresolved": ["CostCenter"]
+}
+```
+
+Deploy the Lambda + EventBridge rule with Terraform — see
+[`terraform/README.md`](terraform/README.md).
+
+## Development
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install -e ".[dev]"
+pytest -q
+```
+
+## One note
+
+A required tag set to an empty string (`Owner=""`) is treated exactly like a
+missing tag. AWS lets you create a resource with a blank tag value, which sails
+past a naive "is the key present?" check — the policy engine strips and rejects
+it so a blank tag never counts as compliant.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

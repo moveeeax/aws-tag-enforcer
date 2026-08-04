@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: aws-tag-enforcer
+    steps:
+      - uses: actions/checkout@v4
+
+      # The minimal self-hosted runner ships without Python, and setup-python's
+      # download actions pull .tar.xz which the runner cannot extract. Install
+      # Python and pip straight from apt instead.
+      - name: Install Python
+        run: |
+          set -eux
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends python3 python3-pip python3-venv
+          fi
+          python3 --version
+
+      - name: Create venv and install
+        run: |
+          set -eux
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          set -eux
+          . .venv/bin/activate
+          pytest -q
+
+      - name: CLI smoke (must exit 1 on non-compliance)
+        run: |
+          set -eux
+          . .venv/bin/activate
+          set +e
+          tag-enforcer eval-event \
+            --policy examples/policy.yaml \
+            --event examples/event-run-instances.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
