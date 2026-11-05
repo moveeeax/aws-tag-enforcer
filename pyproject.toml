@@ -4,20 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aws-tag-enforcer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Auto-tag or flag AWS resources missing mandatory tags, driven by EventBridge."
 readme = "README.md"
 license = { text = "MIT" }
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 authors = [{ name = "Michael Tarassov", email = "michael@tarassov.me" }]
 keywords = ["aws", "tagging", "governance", "compliance", "lambda", "eventbridge"]
-dependencies = ["PyYAML>=5.4"]
+dependencies = ["PyYAML>=6.0.1"]
 
 [project.optional-dependencies]
 # boto3 is only needed when actually talking to AWS (the Lambda runtime ships it).
 # It is imported lazily so the policy engine and CLI work without it.
 aws = ["boto3>=1.26"]
-dev = ["pytest>=6", "PyYAML>=5.4"]
+dev = ["pytest>=8", "PyYAML>=6.0.1"]
 
 [project.scripts]
 tag-enforcer = "tag_enforcer.cli:main"

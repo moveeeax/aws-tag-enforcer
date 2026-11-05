@@ -13,4 +13,4 @@ from .policy import Policy, Evaluation
 from .events import ResourceRef, parse_event
 
 __all__ = ["Policy", "Evaluation", "ResourceRef", "parse_event", "__version__"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"
