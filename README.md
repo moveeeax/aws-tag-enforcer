@@ -1,7 +1,7 @@
 # aws-tag-enforcer
 
 [![ci](https://github.com/moveeeax/aws-tag-enforcer/actions/workflows/ci.yml/badge.svg)](https://github.com/moveeeax/aws-tag-enforcer/actions/workflows/ci.yml)
-[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Keep your AWS tagging policy honest, automatically. `aws-tag-enforcer` reacts to
@@ -22,11 +22,11 @@ config-driven required-tag policy, **applies** the defaults it can, and
 
 ## How it works
 
-The policy engine (`tag_enforcer/policy.py`) is a pure function: given a tag
+The policy engine (`src/tag_enforcer/policy.py`) is a pure function: given a tag
 map it returns which required tags are missing, which can be satisfied from
 `defaults`, and which are unresolved. No AWS calls, so it is trivially testable.
 
-The event layer (`tag_enforcer/events.py`) normalizes each CloudTrail event
+The event layer (`src/tag_enforcer/events.py`) normalizes each CloudTrail event
 shape into a single `ResourceRef`. Unsupported events return `None` and are
 skipped — better to ignore an event than to guess a resource wrong.
 
@@ -37,6 +37,25 @@ engine, the CLI, and the whole test suite run without `boto3` installed.
 EventBridge -> Lambda(handler) -> policy.evaluate() -> tagger.apply_tags()  (enforce)
                                                     \-> notify() -> SNS / Slack
 ```
+
+## Install
+
+Requires Python 3.11+. The package is not published on PyPI; install it
+straight from GitHub:
+
+```bash
+pip install git+https://github.com/moveeeax/aws-tag-enforcer
+# or pin a release tag
+pip install git+https://github.com/moveeeax/aws-tag-enforcer@v0.1.0
+```
+
+That installs the `tag-enforcer` CLI. Add the `aws` extra
+(`pip install "aws-tag-enforcer[aws] @ git+https://github.com/moveeeax/aws-tag-enforcer"`)
+if you want to apply tags or send notifications outside Lambda; the Lambda
+runtime already ships `boto3`.
+
+To deploy as a Lambda you need Terraform 1.3+ with the `hashicorp/aws` 6.x and
+`hashicorp/archive` 2.x providers (declared in `terraform/main.tf`).
 
 ## Usage
 
