@@ -9,9 +9,32 @@ required_tags:
   - Environment
   - CostCenter
 
+# Values taken from the creating CloudTrail event (enforce mode only). A
+# missing required tag is filled from here first, then from `defaults`.
+# Derived tags that are not required (CreatedBy, CreatedAt) are added when
+# missing but never make a resource non-compliant.
+# Sources: principal.user (IAM user name, assumed-role session name -- for IAM
+# Identity Center users that is their user name, usually the email -- or
+# "root"), principal.arn, principal.account, principal.type, event.time.
+derived:
+  Owner: principal.user
+  CreatedBy: principal.arn
+  CreatedAt: event.time
+
 # Values used to auto-fill a missing required tag (enforce mode only).
 defaults:
   Environment: dev
+
+# Constraints on tag values. `allowed` is an exact list, `pattern` a regex the
+# whole value must match, `case` (lower/upper) the required letter case. A
+# value that breaks a rule is flagged and never rewritten, except that with
+# `case` set, enforce mode rewrites a pure case variant (Prod -> prod).
+rules:
+  Environment:
+    allowed: [dev, staging, prod]
+    case: lower
+  CostCenter:
+    pattern: "CC-[0-9]{4}"
 
 # "report" flags non-compliant resources without changing them.
 # "enforce" applies the defaults above, then flags whatever is still missing.

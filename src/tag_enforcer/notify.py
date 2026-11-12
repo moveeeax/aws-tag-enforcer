@@ -2,25 +2,37 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .events import ResourceRef
 from .policy import Policy
 
 
 def format_alert(
-    ref: ResourceRef, missing: List[str], applied: Dict[str, str], mode: str
+    ref: ResourceRef,
+    missing: List[str],
+    applied: Dict[str, str],
+    mode: str,
+    invalid: Optional[Dict[str, str]] = None,
 ) -> str:
     lines = [
         "Non-compliant AWS resource: %s (%s/%s)"
         % (ref.resource_id, ref.service, ref.resource_type),
         "Region: %s  Account: %s" % (ref.region, ref.account_id),
-        "Missing required tags: %s" % ", ".join(missing),
-        "Mode: %s" % mode,
     ]
+    if ref.principal and ref.principal.arn:
+        lines.append("Created by: %s" % ref.principal.arn)
+    if missing:
+        lines.append("Missing required tags: %s" % ", ".join(missing))
+    if invalid:
+        lines.append(
+            "Invalid tag values: %s"
+            % ", ".join("%s=%s" % kv for kv in sorted(invalid.items()))
+        )
+    lines.append("Mode: %s" % mode)
     if applied:
         lines.append(
-            "Auto-applied defaults: %s"
+            "Auto-applied tags: %s"
             % ", ".join("%s=%s" % kv for kv in sorted(applied.items()))
         )
     return "\n".join(lines)
@@ -32,9 +44,10 @@ def notify(
     missing: List[str],
     applied: Dict[str, str],
     session=None,
+    invalid: Optional[Dict[str, str]] = None,
 ) -> List[str]:
     """Send an alert to every configured channel; return the channels used."""
-    message = format_alert(ref, missing, applied, policy.mode)
+    message = format_alert(ref, missing, applied, policy.mode, invalid=invalid)
     sent: List[str] = []
 
     if policy.sns_topic_arn:

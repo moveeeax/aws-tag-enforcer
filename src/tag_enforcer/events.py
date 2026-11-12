@@ -19,6 +19,84 @@ _SOURCE_SERVICE = {
 
 
 @dataclass
+class Principal:
+    """Who made the API call, taken from CloudTrail ``userIdentity``."""
+
+    type: str = ""
+    arn: str = ""
+    account_id: str = ""
+    #: a human-meaningful name: the IAM user name, the session name of an
+    #: assumed role (for IAM Identity Center users that is the user name,
+    #: usually the email), the federated user name, or ``root``.
+    user: str = ""
+
+    @classmethod
+    def from_identity(cls, identity) -> Optional["Principal"]:
+        if not isinstance(identity, dict) or not identity:
+            return None
+        ptype = identity.get("type") or ""
+        arn = identity.get("arn") or ""
+        if ptype == "Root":
+            user = "root"
+        elif ptype == "IAMUser":
+            user = identity.get("userName") or _arn_tail(arn)
+        elif ptype in ("AssumedRole", "FederatedUser"):
+            # arn:aws:sts::<acct>:assumed-role/<role>/<session> -- the session
+            # name is the last segment; principalId is "<id>:<session>".
+            principal_id = identity.get("principalId") or ""
+            user = _arn_tail(arn) or principal_id.rpartition(":")[2]
+        elif ptype == "AWSService":
+            # A service acting on its own: no person to put in Owner.
+            user = ""
+        else:
+            user = identity.get("userName") or ""
+        return cls(
+            type=ptype,
+            arn=arn,
+            account_id=identity.get("accountId") or "",
+            user=user,
+        )
+
+    @classmethod
+    def from_arn(cls, arn: str) -> "Principal":
+        """Build a principal from an IAM/STS ARN (for offline ``check``)."""
+        parts = (arn or "").split(":", 5)
+        if len(parts) != 6 or parts[0] != "arn":
+            raise ValueError("bad principal ARN %r" % arn)
+        service, account, resource = parts[2], parts[4], parts[5]
+        if service == "iam" and resource == "root":
+            return cls(type="Root", arn=arn, account_id=account, user="root")
+        if service == "iam" and resource.startswith("user/"):
+            ptype = "IAMUser"
+        elif service == "sts" and resource.startswith("assumed-role/"):
+            ptype = "AssumedRole"
+        elif service == "sts" and resource.startswith("federated-user/"):
+            ptype = "FederatedUser"
+        else:
+            raise ValueError(
+                "unsupported principal ARN %r (want an IAM user, root, "
+                "assumed-role or federated-user ARN)" % arn
+            )
+        return cls(type=ptype, arn=arn, account_id=account, user=_arn_tail(arn))
+
+    def values(self) -> Dict[str, str]:
+        """This principal as ``principal.*`` derived sources (non-empty only)."""
+        raw = {
+            "principal.user": self.user,
+            "principal.arn": self.arn,
+            "principal.account": self.account_id,
+            "principal.type": self.type,
+        }
+        return {k: v for k, v in raw.items() if v}
+
+
+def _arn_tail(arn: str) -> str:
+    """Last path segment of an ARN's resource part ("" if there is none)."""
+    resource = (arn or "").split(":", 5)[-1]
+    return resource.rsplit("/", 1)[1] if "/" in resource else ""
+
+
+@dataclass
 class ResourceRef:
     service: str
     region: str
@@ -27,6 +105,16 @@ class ResourceRef:
     resource_type: str
     arn: Optional[str] = None
     tags: Dict[str, str] = field(default_factory=dict)
+    principal: Optional[Principal] = None
+    #: CloudTrail ``eventTime`` (ISO 8601, UTC), e.g. ``2026-11-05T09:30:00Z``.
+    event_time: Optional[str] = None
+
+    def derive_values(self) -> Dict[str, str]:
+        """Values for the policy's ``derived`` sources, keyed by source name."""
+        out = self.principal.values() if self.principal else {}
+        if self.event_time:
+            out["event.time"] = self.event_time
+        return out
 
 
 def _tags_from_list(items) -> Dict[str, str]:
@@ -117,7 +205,11 @@ def parse_event(event: Dict) -> Optional[ResourceRef]:
         return None
     region = event.get("region") or detail.get("awsRegion") or ""
     account = event.get("account") or detail.get("recipientAccountId") or ""
-    return extractor(detail, region, account)
+    ref = extractor(detail, region, account)
+    if ref is not None:
+        ref.principal = Principal.from_identity(detail.get("userIdentity"))
+        ref.event_time = detail.get("eventTime") or event.get("time") or None
+    return ref
 
 
 def supported_events() -> Dict[str, str]:
