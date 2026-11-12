@@ -4,8 +4,26 @@
   "detail-type": "AWS API Call via CloudTrail",
   "source": "aws.ec2",
   "account": "111122223333",
+  "time": "2026-11-05T09:30:00Z",
   "region": "eu-central-1",
   "detail": {
+    "eventVersion": "1.10",
+    "userIdentity": {
+      "type": "AssumedRole",
+      "principalId": "AROAEXAMPLEID:mtarassov@example.com",
+      "arn": "arn:aws:sts::111122223333:assumed-role/AWSReservedSSO_PowerUser_0123456789abcdef/mtarassov@example.com",
+      "accountId": "111122223333",
+      "sessionContext": {
+        "sessionIssuer": {
+          "type": "Role",
+          "principalId": "AROAEXAMPLEID",
+          "arn": "arn:aws:iam::111122223333:role/aws-reserved/sso.amazonaws.com/eu-central-1/AWSReservedSSO_PowerUser_0123456789abcdef",
+          "accountId": "111122223333",
+          "userName": "AWSReservedSSO_PowerUser_0123456789abcdef"
+        }
+      }
+    },
+    "eventTime": "2026-11-05T09:30:00Z",
     "eventSource": "ec2.amazonaws.com",
     "eventName": "RunInstances",
     "awsRegion": "eu-central-1",

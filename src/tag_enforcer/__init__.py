@@ -9,8 +9,16 @@ The package is split into small, testable pieces:
 * :mod:`tag_enforcer.notify`  -- flag a non-compliant resource to SNS/Slack.
 * :mod:`tag_enforcer.handler` -- the Lambda entry point that ties it together.
 """
-from .policy import Policy, Evaluation
-from .events import ResourceRef, parse_event
+from .policy import Policy, Evaluation, Rule
+from .events import Principal, ResourceRef, parse_event
 
-__all__ = ["Policy", "Evaluation", "ResourceRef", "parse_event", "__version__"]
+__all__ = [
+    "Policy",
+    "Evaluation",
+    "Rule",
+    "Principal",
+    "ResourceRef",
+    "parse_event",
+    "__version__",
+]
 __version__ = "0.2.0"
